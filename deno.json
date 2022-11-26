@@ -1,0 +1,21 @@
+{
+  "tasks": {
+    "check": "deno check mod.ts && deno fmt --check && deno lint && deno test --doc --allow-env --allow-read --allow-write --allow-run --coverage=coverage && deno coverage coverage --exclude=test",
+    "npm": "deno run -A npm/build.ts && cd npm/build && npm publish"
+  },
+  "fmt": {
+    "options": {
+      "lineWidth": 140
+    }
+  },
+  "lint": {
+    "files": {
+      "exclude": ["npm"]
+    }
+  },
+  "test": {
+    "files": {
+      "exclude": ["npm"]
+    }
+  }
+}
