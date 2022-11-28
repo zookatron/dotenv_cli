@@ -1,5 +1,9 @@
 # dotenv_cli
 
+[![Deno version](https://deno.land/badge/dotenv_cli/version)](https://deno.land/x/dotenv_cli)
+[![NPM version](https://img.shields.io/npm/v/deno_dotenv_cli.svg)](https://www.npmjs.org/package/deno_dotenv_cli)
+[![Release](https://gitlab.com/zookatron/dotenv_cli/-/badges/release.svg)](https://gitlab.com/zookatron/dotenv_cli/-/releases/permalink/latest)
+
 ## Installing
 
 Deno

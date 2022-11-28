@@ -1,9 +1,9 @@
-import { assertEquals } from "https://deno.land/std@0.166.0/testing/asserts.ts";
-import { command } from "./mod.ts";
+import { assertEquals } from "https://deno.land/std@0.167.0/testing/asserts.ts";
+import { main } from "./mod.ts";
 import { assertExits, mockConsole } from "../test/utils.ts";
-import * as path from "https://deno.land/std@0.162.0/path/mod.ts";
+import { dirname, fromFileUrl, resolve } from "https://deno.land/std@0.167.0/path/mod.ts";
 
-const testdataDir = path.resolve(path.dirname(path.fromFileUrl(import.meta.url)), "../test/data");
+const testdataDir = resolve(dirname(fromFileUrl(import.meta.url)), "../test/data");
 
 async function testCommand(commandString: string) {
   const parts = [];
@@ -15,7 +15,7 @@ async function testCommand(commandString: string) {
     const { unquoted, quoted } = match.groups!;
     parts.push(typeof quoted === "string" ? quoted.slice(1, -1) : unquoted);
   }
-  await command().parse(parts);
+  await main(parts);
 }
 
 async function assertLog(file: string, commandString: string, log: string, contains = false) {
@@ -32,39 +32,24 @@ async function assertError(file: string, commandString: string, error: string, c
   });
 }
 
-async function assertFile(file: string, commandString: string, contents: string) {
-  await Deno.writeTextFile(`${testdataDir}/.env.temporary`, await Deno.readTextFile(`${testdataDir}/${file}`));
+async function assertFile(beforeContents: string, commandString: string, afterContents: string) {
+  await Deno.writeTextFile(`${testdataDir}/.env.temporary`, beforeContents);
   await testCommand(`dotenv_cli -f '${testdataDir}/.env.temporary' ${commandString}`);
-  assertEquals(await Deno.readTextFile(`${testdataDir}/.env.temporary`), contents);
+  assertEquals(await Deno.readTextFile(`${testdataDir}/.env.temporary`), afterContents);
   await Deno.remove(`${testdataDir}/.env.temporary`);
 }
 
 Deno.test("get", async (test) => {
   await test.step("handles missing file", () =>
-    assertError(
-      ".env.nonexistant",
-      "get TEST",
-      `Unable to read file "${testdataDir}/.env.nonexistant": `,
-      true,
-    ));
+    assertError(".env.nonexistant", "get TEST", `Unable to read file "${testdataDir}/.env.nonexistant": `, true));
   await test.step("skips lines with comments", () =>
-    assertError(
-      ".env.test",
-      "get #COMMENT",
-      `The variable "#COMMENT" was not found in "${testdataDir}/.env.test"`,
-    ));
+    assertError(".env.test", "get #COMMENT", `The variable "#COMMENT" was not found in "${testdataDir}/.env.test"`));
   await test.step("variables beginning with a number are not parsed", () =>
-    assertError(
-      ".env.test",
-      "get 1INVALID",
-      `The variable "1INVALID" was not found in "${testdataDir}/.env.test"`,
-    ));
+    assertError(".env.test", "get 1INVALID", `The variable "1INVALID" was not found in "${testdataDir}/.env.test"`));
   await test.step("reports non-existant variables", () =>
-    assertError(
-      ".env.test",
-      "get NONEXISTANT",
-      `The variable "NONEXISTANT" was not found in "${testdataDir}/.env.test"`,
-    ));
+    assertError(".env.test", "get NONEXISTANT", `The variable "NONEXISTANT" was not found in "${testdataDir}/.env.test"`));
+  await test.step("reports variable name with spaces", () =>
+    assertError(".env.test", "get 'NAME WITH SPACES'", `The variable "NAME WITH SPACES" was not found in "${testdataDir}/.env.test"`));
   await test.step("parses a basic variable", () => assertLog(".env.test", "get BASIC", "basic"));
   await test.step("skips empty lines", () => assertLog(".env.test", "get AFTER_EMPTY", "empty"));
   await test.step("empty values are empty strings", () => assertLog(".env.test", "get EMPTY_VALUE", ""));
@@ -130,62 +115,60 @@ Deno.test("get", async (test) => {
   await test.step("default in brackets not expanded", () => assertLog(".env.expand.test", "get EXPAND_DEFAULT_IN_BRACKETS_FALSE", "42"));
   await test.step("default var in brackets expanded", () => assertLog(".env.expand.test", "get EXPAND_DEFAULT_VAR_IN_BRACKETS", "42"));
   await test.step("default recursive var in brackets expanded", () =>
-    assertLog(
-      ".env.expand.test",
-      "get EXPAND_DEFAULT_VAR_IN_BRACKETS_RECURSIVE",
-      "single quoted!==double quoted",
-    ));
+    assertLog(".env.expand.test", "get EXPAND_DEFAULT_VAR_IN_BRACKETS_RECURSIVE", "single quoted!==double quoted"));
   await test.step("default variable's default value in brackets is used", () =>
     assertLog(".env.expand.test", "get EXPAND_DEFAULT_VAR_IN_BRACKETS_DEFAULT", "default"));
   await test.step("default in brackets with special characters expanded", () =>
-    assertLog(
-      ".env.expand.test",
-      "get EXPAND_DEFAULT_IN_BRACKETS_WITH_SPECIAL_CHARACTERS",
-      "/default/path",
-    ));
+    assertLog(".env.expand.test", "get EXPAND_DEFAULT_IN_BRACKETS_WITH_SPECIAL_CHARACTERS", "/default/path"));
   await test.step("variables within and without brackets expanded", () =>
     assertLog(".env.expand.test", "get EXPAND_WITH_DIFFERENT_STYLES", "single quoted!==double quoted"));
 });
 
 Deno.test("set", async (test) => {
   await test.step("does not allow #", () =>
-    assertError(
-      ".env.temporary",
-      "set #COMMENT comment",
-      'The variable name "#COMMENT" contains invalid characters',
-    ));
-  await test.step("properly encodes basic variable", () => assertFile(".env.empty", "set BASIC basic", "\nBASIC=basic\n"));
+    assertError(".env.temporary", "set #COMMENT comment", 'The variable name "#COMMENT" contains invalid characters'));
+  await test.step("properly encodes basic variable", () => assertFile("", "set BASIC basic", "\nBASIC=basic\n"));
   await test.step("properly encodes single quote variable", () =>
-    assertFile(".env.empty", "set QUOTED_SINGLE 'single quoted'", "\nQUOTED_SINGLE='single quoted'\n"));
+    assertFile("", "set QUOTED_SINGLE 'single quoted'", "\nQUOTED_SINGLE='single quoted'\n"));
   await test.step("properly encodes multiline variable", () =>
-    assertFile(".env.empty", "set MULTILINE 'hello\nworld'", '\nMULTILINE="hello\\nworld"\n'));
+    assertFile("", "set MULTILINE 'hello\nworld'", '\nMULTILINE="hello\\nworld"\n'));
   await test.step("properly encodes whitespace variable", () =>
-    assertFile(".env.empty", "set WHITESPACE '    whitespace   '", "\nWHITESPACE='    whitespace   '\n"));
-  await test.step("properly encodes equals variable", () => assertFile(".env.empty", "set EQUALS equ==als", "\nEQUALS='equ==als'\n"));
-  await test.step("properly encodes numbe variabler", () => assertFile(".env.empty", "set THE_ANSWER 42", "\nTHE_ANSWER=42\n"));
-  await test.step("properly encodes empty variable", () => assertFile(".env.empty", "set EMPTY ''", "\nEMPTY=\n"));
+    assertFile("", "set WHITESPACE '    whitespace   '", "\nWHITESPACE='    whitespace   '\n"));
+  await test.step("properly encodes equals variable", () => assertFile("", "set EQUALS equ==als", "\nEQUALS='equ==als'\n"));
+  await test.step("properly encodes number variable", () => assertFile("", "set THE_ANSWER 42", "\nTHE_ANSWER=42\n"));
+  await test.step("properly encodes empty variable", () => assertFile("", "set EMPTY ''", "\nEMPTY=\n"));
   await test.step("inner single quotes should be maintained", () =>
-    assertFile(".env.empty", "set VARIABLE \"value'single'quotes\"", "\nVARIABLE='value\\'single\\'quotes'\n"));
+    assertFile("", "set VARIABLE \"value'single'quotes\"", "\nVARIABLE='value\\'single\\'quotes'\n"));
   await test.step("inner double quotes should be maintained", () =>
-    assertFile(".env.empty", 'set VARIABLE \'{"foo": "bar"}\'', '\nVARIABLE=\'{"foo": "bar"}\'\n'));
+    assertFile("", 'set VARIABLE \'{"foo": "bar"}\'', '\nVARIABLE=\'{"foo": "bar"}\'\n'));
   await test.step("preserves other lines without comment", async () =>
-    await assertFile(".env.preserve.before", "set TEST3 'my new value'", await Deno.readTextFile(`${testdataDir}/.env.preserve.after`)));
+    assertFile(
+      await Deno.readTextFile(`${testdataDir}/.env.preserve.before`),
+      "set TEST3 'my new value'",
+      await Deno.readTextFile(`${testdataDir}/.env.preserve.after`),
+    ));
   await test.step("preserves other lines with comment", async () =>
-    await assertFile(
-      ".env.preserve.before",
+    assertFile(
+      await Deno.readTextFile(`${testdataDir}/.env.preserve.before`),
       "set TEST2 'my new value'",
       await Deno.readTextFile(`${testdataDir}/.env.preserve.after.comment`),
     ));
+  await test.step("properly encodes multiline quotes", () =>
+    assertFile(
+      'TEST="multiline\\ntext \\"with\\" quotes"',
+      "set TEST 'multiline\ntext \"with\" quotes'",
+      'TEST="multiline\\ntext \\"with\\" quotes"',
+    ));
+  await test.step("properly encodes variable starting with dash", () => assertFile("", "set DASH '- dash'", "\nDASH='- dash'\n"));
+  await test.step("properly encodes unquoted multiword variable", () =>
+    assertFile("", "set MULTIWORD this is a triumph", "\nMULTIWORD='this is a triumph'\n"));
+  await test.step("properly encodes variable name with spaces", () =>
+    assertFile("", "set 'NAME WITH SPACES' value", "\nNAME WITH SPACES=value\n"));
 });
 
 Deno.test("run", async (test) => {
   await test.step("handles missing file", () =>
-    assertError(
-      ".env.nonexistant",
-      "run ls",
-      `Unable to read file "${testdataDir}/.env.nonexistant": `,
-      true,
-    ));
+    assertError(".env.nonexistant", "run ls", `Unable to read file "${testdataDir}/.env.nonexistant": `, true));
   await test.step("basic", async () => {
     await assertExits(
       2,

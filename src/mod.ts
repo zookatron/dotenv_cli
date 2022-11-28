@@ -1,9 +1,10 @@
-import { Command } from "https://deno.land/x/cliffy@v0.25.4/command/mod.ts";
-import { parse } from "https://deno.land/std@0.166.0/dotenv/mod.ts";
+import { Command, CompletionsCommand, HelpCommand } from "https://deno.land/x/cliffy@v0.25.4/command/mod.ts";
+import { parse } from "https://deno.land/std@0.167.0/dotenv/mod.ts";
 
 /**
- * @param {string} filename the filename of the dotenv file
- * @param {string} name the name of the environment variable to extract
+ * @param {string} filename The filename of the dotenv file
+ * @param {string} name The name of the environment variable to extract
+ * @returns {Promise} The get process promise
  */
 async function get(filename: string, name: string) {
   let file;
@@ -22,14 +23,14 @@ async function get(filename: string, name: string) {
 }
 
 /**
- * @param {string} value environment value to be encoded
+ * @param {string} value Environment value to be encoded
  * @returns {string} encoded environment variable
  */
 function encode(value: string) {
   let quote;
   let escapedValue = value;
 
-  // Logic is based on the `stringify` function from https://deno.land/std@0.166.0/dotenv/mod.ts
+  // Logic is based on the `stringify` function from https://deno.land/std/dotenv/mod.ts
   if (escapedValue.includes("\n")) {
     // escape inner new lines
     escapedValue = escapedValue.replaceAll("\n", "\\n");
@@ -47,9 +48,10 @@ function encode(value: string) {
 }
 
 /**
- * @param {string} filename the filename of the dotenv file
- * @param {string} name the name of the environment variable to extract
- * @param {string} value the value of the environment variable to extract
+ * @param {string} filename The filename of the dotenv file
+ * @param {string} name The name of the environment variable to extract
+ * @param {string} value The value of the environment variable to extract
+ * @returns {Promise} The set process promise
  */
 async function set(filename: string, name: string, value: string) {
   if (name.includes("#")) {
@@ -73,9 +75,10 @@ async function set(filename: string, name: string, value: string) {
   let found = false;
   let newFile = "";
 
-  // Logic is based on the `parse` function from https://deno.land/std@0.166.0/dotenv/mod.ts
+  // Logic is based on the `parse` function from https://deno.land/std/dotenv/mod.ts
   const parseRegex =
-    /^(?<prefix>\s*)(?:export\s+)?(?<key>[a-zA-Z_]+[a-zA-Z0-9_]*?)\s*=[\ \t]*('\n?(?<notInterpolated>(.|\n)*?)\n?'|"\n?(?<interpolated>(.|\n)*?)\n?"|(?<unquoted>[^\n#]*))(?<postfix> *#*.*)$/gm;
+    /^(?<prefix>\s*)(?:export\s+)?(?<key>[a-zA-Z_]+[a-zA-Z0-9_]*?)\s*=[\ \t]*('\n?(?<notInterpolated>(\\.|[^']|\n)*?)\n?'|"\n?(?<interpolated>(\\.|[^"]|\n)*?)\n?"|(?<unquoted>[^\n#]*))(?<postfix> *#*.*)$/gm;
+
   while ((match = parseRegex.exec(file)) != null) {
     const [matchText] = match;
     const { prefix, postfix, key, unquoted } = match.groups!;
@@ -104,8 +107,9 @@ async function set(filename: string, name: string, value: string) {
 }
 
 /**
- * @param {string} filename the filename of the dotenv file
- * @param {string[]} command the parts of the command to run
+ * @param {string} filename The filename of the dotenv file
+ * @param {string[]} command The parts of the command to run
+ * @returns {Promise} The run process promise
  */
 async function run(filename: string, command: string[]) {
   let file;
@@ -122,25 +126,29 @@ async function run(filename: string, command: string[]) {
   Deno.exit(status.code);
 }
 
-export function command() {
-  // deno-lint-ignore prefer-const
-  let helper: { showHelp: () => void };
-  const result = new Command()
+/**
+ * @param {string[]} args The command line arguments
+ * @returns {Promise} The main process promise
+ */
+export function main(args: string[]) {
+  return new Command()
     .name("dotenv_cli")
-    .version("1.0.0")
+    .version("1.0.3")
     .description("CLI tool for interacting with .env files")
     .globalOption("-f, --file <filename:file>", "Specify the path of the .env file.", { default: "./.env" })
-    .action(() => helper.showHelp())
+    .default("help")
+    .command("help", new HelpCommand().global())
+    .command("completions", new CompletionsCommand())
     .command("get", "Get an environment variable")
     .arguments("<name>")
     .action((options, name) => get(options.file, name))
     .command("set", "Set an environment variable")
-    .arguments("<name> <value>")
-    .action((options, name, value) => set(options.file, name, value))
+    .arguments("<name> <...value>")
+    .stopEarly()
+    .action((options, name, ...values) => set(options.file, name, values.join(" ")))
     .command("run", "Run a command with environment variables")
     .arguments("<command> [...args]")
     .stopEarly()
-    .action((options, subcommand, ...args) => run(options.file, [subcommand].concat(args)));
-  helper = result;
-  return result;
+    .action((options, subcommand, ...args) => run(options.file, [subcommand].concat(args)))
+    .parse(args);
 }

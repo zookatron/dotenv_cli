@@ -1,5 +1,5 @@
 import { build, emptyDir } from "https://deno.land/x/dnt@0.32.0/mod.ts";
-import { copy } from "https://deno.land/std@0.165.0/fs/mod.ts";
+import { copy } from "https://deno.land/std@0.167.0/fs/mod.ts";
 
 await emptyDir("./npm/build");
 await copy("test/data", "./npm/build/esm/test/data", { overwrite: true });
@@ -17,7 +17,7 @@ await build({
   },
   package: {
     name: "deno_dotenv_cli",
-    version: "1.0.2",
+    version: "1.0.3",
     description: "CLI tool for interacting with .env files",
     license: "MIT",
     repository: {

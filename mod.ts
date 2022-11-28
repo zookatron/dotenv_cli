@@ -1,5 +1,5 @@
-import { command } from "./src/mod.ts";
+import { main } from "./src/mod.ts";
 
 if (import.meta.main) {
-  command().parse(Deno.args);
+  await main(Deno.args);
 }

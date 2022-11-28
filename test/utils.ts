@@ -1,4 +1,4 @@
-import { assertEquals, assertNotEquals } from "https://deno.land/std@0.166.0/testing/asserts.ts";
+import { assertEquals, assertNotEquals } from "https://deno.land/std@0.167.0/testing/asserts.ts";
 
 function arraysEqual(first: unknown[], second: unknown[]) {
   if (first === second) return true;

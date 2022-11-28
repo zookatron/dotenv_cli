@@ -1,21 +1,24 @@
 {
   "tasks": {
-    "check": "deno check mod.ts && deno fmt --check && deno lint && deno test --doc --allow-env --allow-read --allow-write --allow-run --coverage=coverage && deno coverage coverage --exclude=test",
+    "test": "deno fmt --check && deno lint && deno test --doc --check=all --allow-env --allow-read --allow-write --allow-run --coverage=coverage && deno coverage coverage --exclude=test",
     "npm": "deno run -A npm/build.ts && cd npm/build && npm publish"
   },
   "fmt": {
     "options": {
       "lineWidth": 140
+    },
+    "files": {
+      "exclude": ["coverage", "npm/build"]
     }
   },
   "lint": {
     "files": {
-      "exclude": ["npm"]
+      "exclude": ["coverage", "npm/build"]
     }
   },
   "test": {
     "files": {
-      "exclude": ["npm"]
+      "exclude": ["coverage", "npm/build"]
     }
   }
 }
